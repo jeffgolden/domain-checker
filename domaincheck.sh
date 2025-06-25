@@ -249,7 +249,7 @@ analyze_domain() {
         done
         
         # DKIM Check
-        local dkim_selectors=("default" "google" "selector1" "selector2" "k1" "dkim")
+        local dkim_selectors=("default" "google" "selector1" "selector2" "k1" "dkim" "fm1")
         local dkim_found=false
         for selector in "${dkim_selectors[@]}"; do
             local dkim_record=$(dig +short +time=5 TXT "${selector}._domainkey.${domain}" 2>/dev/null)
