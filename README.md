@@ -358,6 +358,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  <em>Star ⭐ this repo if you find it useful!</em>
+  <em>Star ⭐ this repo if you find it useful!</em><br/>
   <em>Claude Created this....</em>
 </p>
