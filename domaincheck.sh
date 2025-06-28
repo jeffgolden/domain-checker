@@ -81,255 +81,187 @@ check_dependencies() {
     fi
 }
 
-# Cross-platform date parsing
-parse_ssl_date() {
-    local date_string="$1"
-    case "$PLATFORM" in
-        "macOS")
-            date -j -f "%b %d %T %Y %Z" "$date_string" "+%s" 2>/dev/null
-            ;;
-        "Linux"|"FreeBSD")
-            date -d "$date_string" "+%s" 2>/dev/null
-            ;;
-        *)
-            echo ""
-            ;;
-    esac
-}
-
-# Banner
-print_banner() {
-    echo -e "${PURPLE}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${PURPLE}${BOLD}║${NC}                     ${WHITE}DOMAIN INTELLIGENCE${NC}                      ${PURPLE}${BOLD}║${NC}"
-    echo -e "${PURPLE}${BOLD}║${NC}                   ${GRAY}Ultimate Domain Checker${NC}                    ${PURPLE}${BOLD}║${NC}"
-    echo -e "${PURPLE}${BOLD}║${NC}                        ${GRAY}v${VERSION} • ${PLATFORM}${NC}                        ${PURPLE}${BOLD}║${NC}"
-    echo -e "${PURPLE}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
-}
-
-# Section headers
+# Print section header
 print_section() {
-    echo -e "\n${CYAN}${BOLD}▓▓▓ $1 ▓▓▓${NC}"
-    echo -e "${GRAY}${2}${NC}"
+    local title="$1"
+    local description="$2"
+    echo
+    echo -e "${CYAN}${BOLD}▓▓▓ $title ▓▓▓${NC}"
+    [[ -n "$description" ]] && echo -e "${GRAY}$description${NC}"
 }
 
-# Result formatting
+# Print result with formatting
 print_result() {
-    local status=$1
-    local label=$2
-    local value=$3
-    local color=$4
+    local status="$1"
+    local label="$2"
+    local value="$3"
+    local color="${4:-$NC}"
     
     case "$status" in
-        "success")
-            echo -e "  ${GREEN}${CHECK}${NC} ${WHITE}${label}:${NC} ${color}${value}${NC}"
-            ;;
-        "error")
-            echo -e "  ${RED}${CROSS}${NC} ${WHITE}${label}:${NC} ${RED}${value}${NC}"
-            ;;
-        *)
-            echo -e "  ${YELLOW}${ARROW}${NC} ${WHITE}${label}:${NC} ${color}${value}${NC}"
-            ;;
+        "success") echo -e "  ${GREEN}${CHECK}${NC} ${WHITE}$label:${NC} ${color}$value${NC}" ;;
+        "error")   echo -e "  ${RED}${CROSS}${NC} ${WHITE}$label:${NC} ${color}$value${NC}" ;;
+        "info")    echo -e "  ${YELLOW}${ARROW}${NC} ${WHITE}$label:${NC} ${color}$value${NC}" ;;
+        *)         echo -e "  ${WHITE}$label:${NC} ${color}$value${NC}" ;;
     esac
 }
 
-# DMARC policy parser
-parse_dmarc_policy() {
-    local dmarc_record=$1
-    local clean_record=$(echo "$dmarc_record" | tr -d '"')
-    
-    local policy=$(echo "$clean_record" | grep -o 'p=[^;]*' | cut -d'=' -f2)
-    local subdomain_policy=$(echo "$clean_record" | grep -o 'sp=[^;]*' | cut -d'=' -f2)
-    local percentage=$(echo "$clean_record" | grep -o 'pct=[^;]*' | cut -d'=' -f2)
-    local alignment_dkim=$(echo "$clean_record" | grep -o 'adkim=[^;]*' | cut -d'=' -f2)
-    local alignment_spf=$(echo "$clean_record" | grep -o 'aspf=[^;]*' | cut -d'=' -f2)
-    local rua=$(echo "$clean_record" | grep -o 'rua=[^;]*' | cut -d'=' -f2)
-    local ruf=$(echo "$clean_record" | grep -o 'ruf=[^;]*' | cut -d'=' -f2)
-    
-    echo -e "    ${GRAY}Policy Action: ${WHITE}${policy:-none}${NC}"
-    [[ -n "$subdomain_policy" ]] && echo -e "    ${GRAY}Subdomain Policy: ${WHITE}${subdomain_policy}${NC}"
-    [[ -n "$percentage" ]] && echo -e "    ${GRAY}Enforcement: ${WHITE}${percentage}%${NC}"
-    [[ -n "$alignment_dkim" ]] && echo -e "    ${GRAY}DKIM Alignment: ${WHITE}${alignment_dkim}${NC}"
-    [[ -n "$alignment_spf" ]] && echo -e "    ${GRAY}SPF Alignment: ${WHITE}${alignment_spf}${NC}"
-    [[ -n "$rua" ]] && echo -e "    ${GRAY}Aggregate Reports: ${WHITE}${rua}${NC}"
-    [[ -n "$ruf" ]] && echo -e "    ${GRAY}Failure Reports: ${WHITE}${ruf}${NC}"
+# Get HTTP status code
+get_http_status() {
+    local domain="$1"
+    curl -sI "https://$domain" -m 5 | head -1 | awk '{print $2}'
 }
 
-# IP geolocation
-get_ip_info() {
-    local ip=$1
-    local geo_info=$(curl -s --max-time 10 "http://ip-api.com/json/${ip}" 2>/dev/null)
+# Get SSL certificate info
+get_ssl_info() {
+    local domain="$1"
+    echo | openssl s_client -servername "$domain" -connect "$domain:443" 2>/dev/null | \
+        openssl x509 -noout -text 2>/dev/null
+}
+
+# DNS lookup wrapper
+dns_lookup() {
+    local record_type="$1"
+    local domain="$2"
+    local nameserver="${3:-}"
     
-    if [[ -n "$geo_info" ]] && echo "$geo_info" | grep -q '"status":"success"'; then
-        local country=$(echo "$geo_info" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
-        local region=$(echo "$geo_info" | grep -o '"regionName":"[^"]*"' | cut -d'"' -f4)
-        local city=$(echo "$geo_info" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
-        local isp=$(echo "$geo_info" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4)
-        local org=$(echo "$geo_info" | grep -o '"org":"[^"]*"' | cut -d'"' -f4)
-        
-        echo "${city}, ${region}, ${country}"
-        [[ -n "$isp" ]] && echo "ISP: ${isp}"
-        [[ "$org" != "$isp" && -n "$org" ]] && echo "Org: ${org}"
+    if [[ -n "$nameserver" ]]; then
+        dig +short "$record_type" "$domain" "@$nameserver" 2>/dev/null
     else
-        echo "Geolocation data unavailable"
+        dig +short "$record_type" "$domain" 2>/dev/null
     fi
 }
 
-# Main domain analysis function
-analyze_domain() {
-    local domain=$1
+# Check SPF record
+check_spf() {
+    local domain="$1"
+    local spf_records=$(dns_lookup TXT "$domain" | grep -E "^\"?v=spf1")
     
-    print_banner
-    echo -e "\n${WHITE}${BOLD}Analyzing: ${YELLOW}${domain}${NC}\n"
+    if [[ -n "$spf_records" ]]; then
+        echo "$spf_records" | while IFS= read -r spf; do
+            # Clean up quotes
+            spf=$(echo "$spf" | sed 's/^"//; s/"$//')
+            
+            # Check for common SPF mechanisms
+            local mechanisms=""
+            [[ "$spf" =~ "-all" ]] && mechanisms="Fail all (strict)"
+            [[ "$spf" =~ "~all" ]] && mechanisms="SoftFail (recommended)"
+            [[ "$spf" =~ "\+all" ]] && mechanisms="Pass all (insecure)"
+            [[ "$spf" =~ "\?all" ]] && mechanisms="Neutral"
+            
+            print_result "success" "SPF Record" "Found" "${GREEN}"
+            print_result "info" "  Policy" "$spf" "${GRAY}"
+            [[ -n "$mechanisms" ]] && print_result "info" "  Enforcement" "$mechanisms" "${CYAN}"
+            
+            # Check for included domains
+            local includes=$(echo "$spf" | grep -o 'include:[^ ]*' | cut -d: -f2)
+            if [[ -n "$includes" ]]; then
+                echo -e "    ${BOLD}Includes:${NC}"
+                echo "$includes" | while read -r inc; do
+                    echo -e "      ${GRAY}• $inc${NC}"
+                done
+            fi
+        done
+    else
+        print_result "error" "SPF Record" "Not found" "${RED}"
+        echo -e "    ${YELLOW}⚠ Email spoofing protection not configured${NC}"
+    fi
+}
+
+# Check DKIM selector
+check_dkim_selector() {
+    local domain="$1"
+    local selector="$2"
+    local dkim_record=$(dns_lookup TXT "${selector}._domainkey.${domain}")
     
-    # DNS Resolution
-    print_section "DNS RESOLUTION ${GLOBE}" "Core DNS records and IP information"
-    
-    local a_record=$(dig +short +time=10 A "$domain" 2>/dev/null | head -1)
-    if [[ -n "$a_record" && "$a_record" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        print_result "success" "IPv4 Address" "$a_record" "${GREEN}"
-        
-        local geo_data=$(get_ip_info "$a_record")
-        if [[ -n "$geo_data" ]]; then
-            echo "$geo_data" | while IFS= read -r line; do
-                [[ -n "$line" ]] && echo -e "    ${GRAY}${line}${NC}"
-            done
+    if [[ -n "$dkim_record" ]]; then
+        print_result "success" "  $selector" "Found" "${GREEN}"
+        # Extract key info if present
+        if [[ "$dkim_record" =~ "p=" ]]; then
+            local key_present="Public key present"
+            [[ "$dkim_record" =~ "p=;" ]] && key_present="Key revoked"
+            echo -e "      ${GRAY}$key_present${NC}"
         fi
     else
-        print_result "error" "IPv4 Address" "Not found" "${RED}"
-        a_record=""
+        print_result "info" "  $selector" "Not configured" "${GRAY}"
     fi
+}
+
+# Check DMARC record
+check_dmarc() {
+    local domain="$1"
+    local dmarc_record=$(dns_lookup TXT "_dmarc.${domain}")
     
-    local aaaa_record=$(dig +short +time=10 AAAA "$domain" 2>/dev/null | head -1)
-    if [[ -n "$aaaa_record" && "$aaaa_record" =~ : ]]; then
-        print_result "success" "IPv6 Address" "$aaaa_record" "${GREEN}"
-    else
-        print_result "info" "IPv6 Address" "Not configured" "${YELLOW}"
-    fi
-    
-    # DNS Records
-    print_section "DNS RECORDS 📋" "Complete DNS record analysis"
-    
-    # NS Records
-    local ns_records=$(dig +short +time=10 NS "$domain" 2>/dev/null)
-    if [[ -n "$ns_records" ]]; then
-        local ns_count=$(echo "$ns_records" | wc -l | tr -d ' ')
-        print_result "success" "Name Servers" "${ns_count} configured" "${GREEN}"
-        echo "$ns_records" | while read -r ns; do
-            [[ -n "$ns" ]] && echo -e "    ${GRAY}${ARROW} ${ns}${NC}"
-        done
-    fi
-    
-    # MX Records
-    local mx_records=$(dig +short +time=10 MX "$domain" 2>/dev/null)
-    if [[ -n "$mx_records" ]]; then
-        local mx_count=$(echo "$mx_records" | wc -l | tr -d ' ')
-        print_result "success" "Mail Servers" "${mx_count} configured" "${GREEN}"
-        echo "$mx_records" | while read -r mx; do
-            [[ -n "$mx" ]] && echo -e "    ${GRAY}${MAIL} ${mx}${NC}"
-        done
-    else
-        print_result "error" "Mail Servers" "No MX records found" "${RED}"
-    fi
-    
-    # Email Security
-    print_section "EMAIL SECURITY ${SHIELD}" "SPF, DKIM, and DMARC configuration"
-    
-    local txt_records=$(dig +short +time=10 TXT "$domain" 2>/dev/null)
-    if [[ -n "$txt_records" ]]; then
-        local txt_count=$(echo "$txt_records" | wc -l | tr -d ' ')
-        print_result "success" "TXT Records" "${txt_count} found" "${GREEN}"
-        
-        # SPF Check
-        local spf_found=false
-        echo "$txt_records" | while read -r txt; do
-            if [[ "$txt" =~ v=spf1 ]]; then
-                echo -e "    ${GREEN}${LOCK} SPF configured: ${WHITE}$(echo "$txt" | tr -d '"')${NC}"
-                spf_found=true
-            fi
-        done
-        
-        # DKIM Check
-        local dkim_selectors=("default" "google" "selector1" "selector2" "k1" "dkim" "fm1")
-        local dkim_found=false
-        for selector in "${dkim_selectors[@]}"; do
-            local dkim_record=$(dig +short +time=5 TXT "${selector}._domainkey.${domain}" 2>/dev/null)
-            if [[ -n "$dkim_record" ]]; then
-                echo -e "    ${GREEN}${LOCK} DKIM selector '${selector}' configured${NC}"
-                dkim_found=true
-            fi
-        done
-        [[ "$dkim_found" == false ]] && echo -e "    ${YELLOW}${ARROW} DKIM: No common selectors found (may still be configured)${NC}"
-    fi
-    
-    # DMARC Check
-    local dmarc_record=$(dig +short +time=10 TXT "_dmarc.$domain" 2>/dev/null)
     if [[ -n "$dmarc_record" ]]; then
-        print_result "success" "DMARC Policy" "Configured" "${GREEN}"
-        parse_dmarc_policy "$dmarc_record"
-    else
-        print_result "error" "DMARC Policy" "Not configured" "${RED}"
-        echo -e "    ${GRAY}Consider implementing DMARC for email authentication${NC}"
-    fi
-    
-    # Web Services
-    print_section "WEB SERVICES 🌐" "HTTP/HTTPS connectivity and SSL analysis"
-    
-    # HTTP Check
-    local http_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://$domain" 2>/dev/null)
-    if [[ "$http_status" =~ ^[2-3] ]]; then
-        print_result "success" "HTTP (Port 80)" "Responding (${http_status})" "${GREEN}"
-    elif [[ -n "$http_status" && "$http_status" != "000" ]]; then
-        print_result "info" "HTTP (Port 80)" "Status: ${http_status}" "${YELLOW}"
-    else
-        print_result "error" "HTTP (Port 80)" "Not responding" "${RED}"
-    fi
-    
-    # HTTPS Check
-    local https_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://$domain" 2>/dev/null)
-    if [[ "$https_status" =~ ^[2-3] ]]; then
-        print_result "success" "HTTPS (Port 443)" "Responding (${https_status})" "${GREEN}"
+        # Clean up quotes
+        dmarc_record=$(echo "$dmarc_record" | sed 's/^"//; s/"$//')
         
-        # SSL Certificate Analysis
-        echo -e "\n  ${PURPLE}${BOLD}SSL Certificate Details:${NC}"
+        print_result "success" "DMARC Record" "Found" "${GREEN}"
+        print_result "info" "  Policy" "$dmarc_record" "${GRAY}"
         
-        local ssl_output=$(echo | openssl s_client -servername "$domain" -connect "$domain:443" 2>/dev/null)
-        local ssl_info=$(echo "$ssl_output" | openssl x509 -noout -text 2>/dev/null)
+        # Extract key DMARC tags
+        local policy="none"
+        [[ "$dmarc_record" =~ "p=reject" ]] && policy="reject (strict)"
+        [[ "$dmarc_record" =~ "p=quarantine" ]] && policy="quarantine (moderate)"
+        [[ "$dmarc_record" =~ "p=none" ]] && policy="none (monitoring only)"
         
-        if [[ -n "$ssl_info" ]]; then
-            local issuer=$(echo "$ssl_info" | grep "Issuer:" | cut -d'=' -f2-)
-            local subject=$(echo "$ssl_info" | grep "Subject:" | cut -d'=' -f2-)
-            local not_after=$(echo "$ssl_info" | grep "Not After" | cut -d':' -f2-)
-            
-            [[ -n "$subject" ]] && echo -e "    ${GRAY}Issued to: ${WHITE}${subject}${NC}"
-            [[ -n "$issuer" ]] && echo -e "    ${GRAY}Issued by: ${WHITE}${issuer}${NC}"
-            [[ -n "$not_after" ]] && echo -e "    ${GRAY}Expires: ${WHITE}${not_after}${NC}"
-            
-            # Certificate expiry calculation
-            if [[ -n "$not_after" ]]; then
-                local expiry_epoch=$(parse_ssl_date "$not_after")
-                local current_epoch=$(date "+%s")
-                if [[ -n "$expiry_epoch" && "$expiry_epoch" =~ ^[0-9]+$ ]]; then
-                    local days_left=$(( (expiry_epoch - current_epoch) / 86400 ))
-                    
-                    if [[ $days_left -gt 30 ]]; then
-                        echo -e "    ${GREEN}${LOCK} Certificate valid (${days_left} days remaining)${NC}"
-                    elif [[ $days_left -gt 0 ]]; then
-                        echo -e "    ${YELLOW}⚠️  Certificate expires soon (${days_left} days)${NC}"
-                    else
-                        echo -e "    ${RED}${CROSS} Certificate expired${NC}"
-                    fi
-                fi
-            fi
+        print_result "info" "  Protection Level" "$policy" "${CYAN}"
+        
+        # Check for reporting
+        if [[ "$dmarc_record" =~ "rua=" ]] || [[ "$dmarc_record" =~ "ruf=" ]]; then
+            print_result "info" "  Reporting" "Enabled" "${GREEN}"
         fi
-        
-    elif [[ -n "$https_status" && "$https_status" != "000" ]]; then
-        print_result "info" "HTTPS (Port 443)" "Status: ${https_status}" "${YELLOW}"
     else
-        print_result "error" "HTTPS (Port 443)" "Not responding" "${RED}"
+        print_result "error" "DMARC Record" "Not found" "${RED}"
+        echo -e "    ${YELLOW}⚠ No email authentication policy${NC}"
+    fi
+}
+
+# Main analysis function
+analyze_domain() {
+    local domain="$1"
+    
+    # Clean domain input
+    domain=$(echo "$domain" | sed 's|https\?://||; s|/.*||; s|^www\.||')
+    
+    echo -e "${BOLD}${WHITE}Analyzing domain: ${CYAN}$domain${NC}"
+    echo -e "${GRAY}Generated on $(date) • Platform: $PLATFORM${NC}"
+    
+    # Basic DNS Records
+    print_section "DNS RECORDS 🌐" "Core DNS configuration"
+    
+    local a_record=$(dns_lookup A "$domain")
+    local aaaa_record=$(dns_lookup AAAA "$domain")
+    local mx_records=$(dns_lookup MX "$domain")
+    local ns_records=$(dns_lookup NS "$domain")
+    
+    if [[ -n "$a_record" ]]; then
+        print_result "success" "A Record" "$a_record" "${WHITE}"
+    else
+        print_result "error" "A Record" "Not found" "${RED}"
     fi
     
-# Starting from line 331 (# WHOIS Information)
-
+    if [[ -n "$aaaa_record" ]]; then
+        print_result "success" "AAAA Record" "$aaaa_record" "${WHITE}"
+    else
+        print_result "info" "AAAA Record" "No IPv6" "${GRAY}"
+    fi
+    
+    if [[ -n "$mx_records" ]]; then
+        print_result "success" "MX Records" "" "${GREEN}"
+        echo "$mx_records" | while read -r mx; do
+            echo -e "    ${GRAY}• $mx${NC}"
+        done
+    else
+        print_result "error" "MX Records" "Not found" "${RED}"
+    fi
+    
+    if [[ -n "$ns_records" ]]; then
+        print_result "success" "Nameservers" "" "${GREEN}"
+        echo "$ns_records" | while read -r ns; do
+            echo -e "    ${GRAY}• $ns${NC}"
+        done
+    fi
+    
     # WHOIS Information
     print_section "DOMAIN REGISTRATION 📋" "WHOIS and registration details"
     
@@ -342,21 +274,6 @@ analyze_domain() {
         local expires=$(echo "$whois_info" | grep -i "expir" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         local status=$(echo "$whois_info" | grep -i "status:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         
-        # Registrant information
-        local registrant_name=$(echo "$whois_info" | grep -i "registrant name\|registrant:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local registrant_org=$(echo "$whois_info" | grep -i "registrant organi" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local registrant_email=$(echo "$whois_info" | grep -i "registrant email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local registrant_country=$(echo "$whois_info" | grep -i "registrant country" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local registrant_state=$(echo "$whois_info" | grep -i "registrant state\|registrant province" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        
-        # Admin contact
-        local admin_name=$(echo "$whois_info" | grep -i "admin name" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local admin_email=$(echo "$whois_info" | grep -i "admin email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        
-        # Tech contact
-        local tech_name=$(echo "$whois_info" | grep -i "tech name" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local tech_email=$(echo "$whois_info" | grep -i "tech email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        
         # Display basic info
         [[ -n "$registrar" ]] && print_result "success" "Registrar" "$registrar" "${WHITE}"
         [[ -n "$created" ]] && print_result "success" "Registration Date" "$created" "${WHITE}"
@@ -364,151 +281,226 @@ analyze_domain() {
         [[ -n "$expires" ]] && print_result "success" "Expiration Date" "$expires" "${WHITE}"
         [[ -n "$status" ]] && print_result "success" "Status" "$status" "${WHITE}"
         
-        # Display registrant info if available
-        if [[ -n "$registrant_name" ]] || [[ -n "$registrant_org" ]] || [[ -n "$registrant_email" ]]; then
-            echo -e "\n  ${BOLD}Registrant Information:${NC}"
-            [[ -n "$registrant_name" ]] && print_result "info" "  Name" "$registrant_name" "${CYAN}"
-            [[ -n "$registrant_org" ]] && print_result "info" "  Organization" "$registrant_org" "${CYAN}"
-            [[ -n "$registrant_email" ]] && print_result "info" "  Email" "$registrant_email" "${CYAN}"
-            [[ -n "$registrant_country" ]] && print_result "info" "  Country" "$registrant_country" "${CYAN}"
-            [[ -n "$registrant_state" ]] && print_result "info" "  State/Province" "$registrant_state" "${CYAN}"
-        fi
-        
-        # Display admin contact if available
-        if [[ -n "$admin_name" ]] || [[ -n "$admin_email" ]]; then
-            echo -e "\n  ${BOLD}Administrative Contact:${NC}"
-            [[ -n "$admin_name" ]] && print_result "info" "  Name" "$admin_name" "${CYAN}"
-            [[ -n "$admin_email" ]] && print_result "info" "  Email" "$admin_email" "${CYAN}"
-        fi
-        
-        # Display tech contact if available
-        if [[ -n "$tech_name" ]] || [[ -n "$tech_email" ]]; then
-            echo -e "\n  ${BOLD}Technical Contact:${NC}"
-            [[ -n "$tech_name" ]] && print_result "info" "  Name" "$tech_name" "${CYAN}"
-            [[ -n "$tech_email" ]] && print_result "info" "  Email" "$tech_email" "${CYAN}"
-        fi
-        
         # Check for privacy protection
-        if echo "$whois_info" | grep -qi "privacy\|proxy\|protected\|redacted\|data protected"; then
-            echo -e "\n  ${YELLOW}⚠️  Note: This domain appears to use WHOIS privacy protection${NC}"
+        if echo "$whois_info" | grep -qi "privacy\|proxy\|protected\|redacted\|data protected\|withheld\|anonymi"; then
+            echo -e "\n  ${YELLOW}🔒 WHOIS Privacy Protection Active${NC}"
+            echo -e "  ${GRAY}Contact information is hidden by privacy service${NC}"
+        else
+            # Only show contact info if NOT privacy protected
+            # Registrant information
+            local registrant_name=$(echo "$whois_info" | grep -i "registrant name\|registrant:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            local registrant_org=$(echo "$whois_info" | grep -i "registrant organi" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            local registrant_email=$(echo "$whois_info" | grep -i "registrant email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            local registrant_country=$(echo "$whois_info" | grep -i "registrant country" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            local registrant_state=$(echo "$whois_info" | grep -i "registrant state\|registrant province" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            
+            # Admin contact
+            local admin_name=$(echo "$whois_info" | grep -i "admin name" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            local admin_email=$(echo "$whois_info" | grep -i "admin email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            
+            # Tech contact
+            local tech_name=$(echo "$whois_info" | grep -i "tech name" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            local tech_email=$(echo "$whois_info" | grep -i "tech email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+            
+            # Display registrant info if available
+            if [[ -n "$registrant_name" ]] || [[ -n "$registrant_org" ]] || [[ -n "$registrant_email" ]]; then
+                echo -e "\n  ${BOLD}Registrant Information:${NC}"
+                [[ -n "$registrant_name" ]] && print_result "info" "  Name" "$registrant_name" "${CYAN}"
+                [[ -n "$registrant_org" ]] && print_result "info" "  Organization" "$registrant_org" "${CYAN}"
+                [[ -n "$registrant_email" ]] && print_result "info" "  Email" "$registrant_email" "${CYAN}"
+                [[ -n "$registrant_country" ]] && print_result "info" "  Country" "$registrant_country" "${CYAN}"
+                [[ -n "$registrant_state" ]] && print_result "info" "  State/Province" "$registrant_state" "${CYAN}"
+            fi
+            
+            # Display admin contact if available
+            if [[ -n "$admin_name" ]] || [[ -n "$admin_email" ]]; then
+                echo -e "\n  ${BOLD}Administrative Contact:${NC}"
+                [[ -n "$admin_name" ]] && print_result "info" "  Name" "$admin_name" "${CYAN}"
+                [[ -n "$admin_email" ]] && print_result "info" "  Email" "$admin_email" "${CYAN}"
+            fi
+            
+            # Display tech contact if available
+            if [[ -n "$tech_name" ]] || [[ -n "$tech_email" ]]; then
+                echo -e "\n  ${BOLD}Technical Contact:${NC}"
+                [[ -n "$tech_name" ]] && print_result "info" "  Name" "$tech_name" "${CYAN}"
+                [[ -n "$tech_email" ]] && print_result "info" "  Email" "$tech_email" "${CYAN}"
+            fi
         fi
     else
         print_result "error" "WHOIS Data" "Unable to retrieve" "${RED}"
     fi
+    
+    # Security Headers
     print_section "SECURITY HEADERS 🛡️" "HTTP security header analysis"
     
-    local headers=$(curl -s -I --max-time 10 "https://$domain" 2>/dev/null)
-    
-    if echo "$headers" | grep -qi "strict-transport-security"; then
-        print_result "success" "HSTS" "Enabled" "${GREEN}"
+    local headers=$(curl -sI "https://$domain" -m 5)
+    if [[ -n "$headers" ]]; then
+        # Check for common security headers
+        local hsts=$(echo "$headers" | grep -i "strict-transport-security")
+        local frame_options=$(echo "$headers" | grep -i "x-frame-options")
+        local content_type=$(echo "$headers" | grep -i "x-content-type-options")
+        
+        if [[ -n "$hsts" ]]; then
+            print_result "success" "HSTS" "Enabled" "${GREEN}"
+        else
+            print_result "error" "HSTS" "Not enabled" "${RED}"
+        fi
+        
+        if [[ -n "$frame_options" ]]; then
+            print_result "success" "X-Frame-Options" "Set" "${GREEN}"
+        else
+            print_result "error" "X-Frame-Options" "Not set" "${RED}"
+        fi
+        
+        if [[ -n "$content_type" ]]; then
+            print_result "success" "X-Content-Type-Options" "Set" "${GREEN}"
+        else
+            print_result "error" "X-Content-Type-Options" "Not set" "${RED}"
+        fi
     else
-        print_result "error" "HSTS" "Not enabled" "${RED}"
+        print_result "error" "Security Headers" "Could not retrieve" "${RED}"
     fi
     
-    if echo "$headers" | grep -qi "x-frame-options"; then
-        print_result "success" "X-Frame-Options" "Set" "${GREEN}"
+    # SSL Certificate
+    print_section "SSL CERTIFICATE 🔒" "TLS/SSL certificate details"
+    
+    local ssl_info=$(get_ssl_info "$domain")
+    if [[ -n "$ssl_info" ]]; then
+        local issuer=$(echo "$ssl_info" | grep -A1 "Issuer:" | tail -1 | sed 's/^[[:space:]]*//')
+        local subject=$(echo "$ssl_info" | grep -A1 "Subject:" | tail -1 | sed 's/^[[:space:]]*//')
+        local not_after=$(echo "$ssl_info" | grep "Not After" | cut -d: -f2- | sed 's/^[[:space:]]*//')
+        
+        print_result "success" "SSL Certificate" "Valid" "${GREEN}"
+        [[ -n "$issuer" ]] && print_result "info" "Issuer" "$issuer" "${WHITE}"
+        [[ -n "$not_after" ]] && print_result "info" "Expires" "$not_after" "${WHITE}"
+        
+        # Check expiration
+        if [[ -n "$not_after" ]]; then
+            local exp_date=$(date -d "$not_after" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$not_after" +%s 2>/dev/null)
+            local now=$(date +%s)
+            local days_left=$(( (exp_date - now) / 86400 ))
+            
+            if [[ $days_left -lt 30 ]]; then
+                print_result "error" "Days until expiry" "$days_left days" "${RED}"
+                echo -e "    ${RED}⚠ Certificate expiring soon!${NC}"
+            else
+                print_result "info" "Days until expiry" "$days_left days" "${GREEN}"
+            fi
+        fi
     else
-        print_result "error" "X-Frame-Options" "Not set" "${RED}"
+        print_result "error" "SSL Certificate" "Could not retrieve" "${RED}"
     fi
     
-    if echo "$headers" | grep -qi "x-content-type-options"; then
-        print_result "success" "X-Content-Type-Options" "Set" "${GREEN}"
-    else
-        print_result "error" "X-Content-Type-Options" "Not set" "${RED}"
+    # Email Security
+    print_section "EMAIL SECURITY 📧" "SPF, DKIM, and DMARC configuration"
+    
+    # SPF Check
+    check_spf "$domain"
+    
+    # DKIM Check
+    echo
+    print_result "info" "DKIM Selectors" "Checking common selectors..." "${CYAN}"
+    local selectors=("default" "google" "k1" "s1" "s2" "mail" "smtp" "dkim" "email" "key1" "key2")
+    local dkim_found=false
+    
+    for selector in "${selectors[@]}"; do
+        local dkim_record=$(dns_lookup TXT "${selector}._domainkey.${domain}" | grep -v "^;;")
+        if [[ -n "$dkim_record" ]]; then
+            dkim_found=true
+            check_dkim_selector "$domain" "$selector"
+        fi
+    done
+    
+    if [[ "$dkim_found" == false ]]; then
+        print_result "error" "DKIM" "No selectors found" "${RED}"
+        echo -e "    ${YELLOW}⚠ Email authentication not configured${NC}"
     fi
     
-    echo -e "\n${GRAY}${BOLD}Analysis complete for ${WHITE}${domain}${NC}"
-    echo -e "${GRAY}Generated on $(date) • Platform: ${PLATFORM}${NC}\n"
+    # DMARC Check
+    echo
+    check_dmarc "$domain"
+    
+    # Website Status
+    print_section "WEBSITE STATUS 🌍" "HTTP/HTTPS connectivity check"
+    
+    local http_status=$(get_http_status "$domain")
+    if [[ -n "$http_status" ]]; then
+        case "$http_status" in
+            200) print_result "success" "HTTPS Status" "$http_status OK" "${GREEN}" ;;
+            301|302) print_result "info" "HTTPS Status" "$http_status Redirect" "${YELLOW}" ;;
+            403) print_result "error" "HTTPS Status" "$http_status Forbidden" "${RED}" ;;
+            404) print_result "error" "HTTPS Status" "$http_status Not Found" "${RED}" ;;
+            5*) print_result "error" "HTTPS Status" "$http_status Server Error" "${RED}" ;;
+            *) print_result "info" "HTTPS Status" "$http_status" "${YELLOW}" ;;
+        esac
+    else
+        print_result "error" "HTTPS Status" "Connection failed" "${RED}"
+    fi
+    
+    # Footer
+    echo
+    echo -e "${GRAY}${BOLD}Analysis complete for ${WHITE}$domain${NC}"
+    echo -e "${GRAY}Generated on $(date) • Platform: $PLATFORM${NC}"
+    echo
 }
 
-# Help function
+# Show help
 show_help() {
-    echo -e "${WHITE}${BOLD}${SCRIPT_NAME} v${VERSION}${NC}"
-    echo -e "${GRAY}Cross-platform domain security and DNS analysis tool${NC}\n"
-    echo -e "${WHITE}Usage:${NC}"
-    echo -e "  $0 <domain>              Analyze a domain"
-    echo -e "  $0 --help               Show this help message"
-    echo -e "  $0 --version            Show version information"
-    echo -e "  $0 --check-deps         Check dependencies"
-    echo
-    echo -e "${WHITE}Examples:${NC}"
-    echo -e "  $0 google.com"
-    echo -e "  $0 example.org"
-    echo -e "  $0 your-company.com"
-    echo
-    echo -e "${WHITE}Features:${NC}"
-    echo -e "  • DNS resolution and geolocation"
-    echo -e "  • Email security analysis (SPF, DKIM, DMARC)"
-    echo -e "  • SSL/TLS certificate monitoring"
-    echo -e "  • Security headers assessment"
-    echo -e "  • WHOIS registration data"
-    echo
-    echo -e "${WHITE}Supported Platforms:${NC}"
-    echo -e "  • macOS (Darwin)"
-    echo -e "  • Linux (all distributions)"
-    echo -e "  • FreeBSD"
-    echo
-}
+    cat << EOF
+${BOLD}${SCRIPT_NAME} v${VERSION}${NC}
+${GRAY}Advanced domain security and DNS analysis tool${NC}
 
-# Version function
-show_version() {
-    echo -e "${WHITE}${BOLD}${SCRIPT_NAME}${NC}"
-    echo -e "Version: ${VERSION}"
-    echo -e "Platform: ${PLATFORM}"
-    echo -e "Shell: ${BASH_VERSION}"
-    echo -e "License: MIT"
+${BOLD}USAGE:${NC}
+    $(basename "$0") <domain>
+    $(basename "$0") [options]
+
+${BOLD}OPTIONS:${NC}
+    -h, --help      Show this help message
+    -v, --version   Show version information
+
+${BOLD}EXAMPLES:${NC}
+    $(basename "$0") example.com
+    $(basename "$0") subdomain.example.com
+
+${BOLD}FEATURES:${NC}
+    • DNS record analysis (A, AAAA, MX, NS)
+    • WHOIS information with registrant details
+    • SSL/TLS certificate validation
+    • Security header assessment
+    • Email security (SPF, DKIM, DMARC)
+    • Website connectivity testing
+
+${BOLD}SUPPORTED PLATFORMS:${NC}
+    • macOS
+    • Linux (Ubuntu, Debian, RHEL, CentOS, Fedora)
+    • FreeBSD
+
+EOF
 }
 
 # Main execution
 main() {
-    # Detect platform first
     detect_platform
     
-    # Handle arguments
     case "${1:-}" in
-        "--help"|"-h")
+        -h|--help)
             show_help
             exit 0
             ;;
-        "--version"|"-v")
-            show_version
-            exit 0
-            ;;
-        "--check-deps")
-            echo -e "${WHITE}Checking dependencies...${NC}"
-            check_dependencies
-            echo -e "${GREEN}All dependencies are installed!${NC}"
+        -v|--version)
+            echo "$SCRIPT_NAME v$VERSION"
             exit 0
             ;;
         "")
-            echo -e "${RED}Error: Domain name required${NC}"
-            echo -e "Usage: $0 <domain>"
-            echo -e "Try '$0 --help' for more information."
+            show_help
             exit 1
             ;;
-        -*)
-            echo -e "${RED}Error: Unknown option '$1'${NC}"
-            echo -e "Try '$0 --help' for more information."
-            exit 1
+        *)
+            check_dependencies
+            analyze_domain "$1"
             ;;
     esac
-    
-    # Check dependencies
-    check_dependencies
-    
-    # Clean domain input
-    local domain="$1"
-    domain=$(echo "$domain" | sed 's|^https\?://||' | sed 's|/.*||' | tr '[:upper:]' '[:lower:]')
-    
-    # Validate domain format
-    if [[ ! "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
-        echo -e "${RED}Error: Invalid domain format '$domain'${NC}"
-        exit 1
-    fi
-    
-    # Run analysis
-    analyze_domain "$domain"
 }
 
-# Execute main function with all arguments
+# Run main function
 main "$@"
