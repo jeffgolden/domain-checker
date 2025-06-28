@@ -400,7 +400,7 @@ analyze_domain() {
     # DKIM Check
     echo
     print_result "info" "DKIM Selectors" "Checking common selectors..." "${CYAN}"
-    local selectors=("default" "google" "k1" "s1" "s2" "mail" "smtp" "dkim" "email" "key1" "key2")
+    local selectors=("default" "google" "fm1" "k1" "s1" "s2" "mail" "smtp" "dkim" "email" "key1" "key2")
     local dkim_found=false
     
     for selector in "${selectors[@]}"; do
