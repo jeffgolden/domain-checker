@@ -281,11 +281,12 @@ analyze_domain() {
         [[ -n "$expires" ]] && print_result "success" "Expiration Date" "$expires" "${WHITE}"
         [[ -n "$status" ]] && print_result "success" "Status" "$status" "${WHITE}"
         
-        # Check for privacy protection
-        if echo "$whois_info" | grep -qi "privacy\|proxy\|protected\|redacted\|data protected\|withheld\|anonymi"; then
+                # Check for privacy protection
+        if echo "$whois_info" | grep -qi "Redacted For Privacy|Domain Protection Services"; then
             echo -e "\n  ${YELLOW}🔒 WHOIS Privacy Protection Active${NC}"
             echo -e "  ${GRAY}Contact information is hidden by privacy service${NC}"
         else
+
             # Only show contact info if NOT privacy protected
             # Registrant information
             local registrant_name=$(echo "$whois_info" | grep -i "registrant name\|registrant:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
