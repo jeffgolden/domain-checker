@@ -337,7 +337,7 @@ analyze_domain() {
     if [[ -n "$whois_info" ]]; then
         # Basic registration info
         local registrar=$(echo "$whois_info" | grep -i "registrar:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local created=$(echo "$whois_info" | grep -i "creation date\|created\|registration date" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local created=$(echo "$whois_info" | grep -i "creation date:\|registration date:" | grep -v "organisation\|remarks" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         local updated=$(echo "$whois_info" | grep -i "updated date\|last update" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         local expires=$(echo "$whois_info" | grep -i "expir" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         local status=$(echo "$whois_info" | grep -i "status:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
