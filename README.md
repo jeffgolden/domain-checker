@@ -8,80 +8,106 @@
 
 ## ✨ Features
 
-- 🌍 **DNS Resolution & Geolocation** - IPv4/IPv6 with real-time location data
-- 🛡️ **Advanced Email Security** - SPF, DKIM, DMARC policy analysis
-- 🌐 **SSL/TLS Certificate Monitoring** - Expiration warnings and CA details  
-- 🔒 **Security Headers Assessment** - HSTS, X-Frame-Options, Content-Type protection
-- 📋 **WHOIS Intelligence** - Complete registration data, registrant info, contacts, and privacy detection
-- 🎨 **Beautiful Terminal Output** - Colored output with Unicode symbols
-- 🖥️ **Cross-Platform** - Works on Linux, macOS, and FreeBSD
-- ⚡ **Zero Dependencies** - Uses standard Unix tools
+- 🌍 **DNS Record Analysis** - A, AAAA, MX, and NS records.
+- 🛡️ **Email Security** - SPF, DKIM, and DMARC policy analysis.
+- 🌐 **SSL/TLS Certificate Monitoring** - Expiration warnings and CA details.
+- 🔒 **Security Headers Assessment** - HSTS, X-Frame-Options, and X-Content-Type-Options.
+- 📋 **WHOIS Intelligence** - Complete registration data, including registrant, admin, and tech contacts, and privacy protection detection.
+- 🎨 **Beautiful Terminal Output** - Colored output with Unicode symbols for easy reading.
+- 🖥️ **Cross-Platform** - Works on Linux, macOS, and FreeBSD.
+- ⚡ **Lightweight and Fast** - Uses standard Unix tools for maximum performance.
 
 ## 📸 Sample Output
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║                     DOMAIN INTELLIGENCE                      ║
-║                   Ultimate Domain Checker                    ║
-║                        v2.1.0 • Linux                        ║
-╚══════════════════════════════════════════════════════════════╝
+Analyzing domain: google.com
+Generated on Fri Jun 27 21:43:53 CDT 2025 • Platform: macOS
 
-Analyzing: google.com
+▓▓▓ DNS RECORDS 🌐 ▓▓▓
+Core DNS configuration
+  ✓ A Record: 172.217.4.46
+  ✓ AAAA Record: 2607:f8b0:4009:809::200e
+  ✓ MX Records: 
+    • 10 smtp.google.com.
+  ✓ Nameservers: 
+    • ns4.google.com.
+    • ns2.google.com.
+    • ns1.google.com.
+    • ns3.google.com.
 
-▓▓▓ DNS RESOLUTION 🌍 ▓▓▓
-Core DNS records and IP information
-  ✓ IPv4 Address: 142.250.69.78
-    Mountain View, California, United States
-    ISP: Google LLC
-  ✓ IPv6 Address: 2607:f8b0:4020:802::200e
+▓▓▓ DOMAIN REGISTRATION 📋 ▓▓▓
+WHOIS and registration details
+  ✓ Registrar: MarkMonitor Inc.
+  ✓ Registration Date: 1997-09-15T04:00:00Z
+  ✓ Last Updated: 2019-09-09T15:39:04Z
+  ✓ Expiration Date: 2028-09-14T04:00:00Z
+  ✓ Status: ACTIVE
 
-▓▓▓ EMAIL SECURITY 🛡️ ▓▓▓
-SPF, DKIM, and DMARC configuration
-  ✓ TXT Records: 12 found
-    🔒 SPF configured: v=spf1 include:_spf.google.com ~all
-  ✓ DMARC Policy: Configured
-    Policy Action: reject
-    Aggregate Reports: mailto:mailauth-reports@google.com
+  Registrant Information:
+  →   Organization: Google LLC
+  →   Email: Select Request Email Form at https://domains.markmonitor.com/whois/google.com
+  →   Country: US
 
-▓▓▓ WEB SERVICES 🌐 ▓▓▓
-HTTP/HTTPS connectivity and SSL analysis
-  ✓ HTTPS (Port 443): Responding (200)
-  
-  SSL Certificate Details:
-    Issued to: *.google.com
-    Issued by: US, O=Google Trust Services, CN=WE1
-    Expires: Aug 25 08:35:39 2025 GMT
-    🔒 Certificate valid (61 days remaining)
+  Technical Contact:
+  →   Email: Select Request Email Form at https://domains.markmonitor.com/whois/google.com
 
 ▓▓▓ SECURITY HEADERS 🛡️ ▓▓▓
 HTTP security header analysis
-  ✓ HSTS: Enabled
+  ✗ HSTS: Not enabled
   ✓ X-Frame-Options: Set
   ✗ X-Content-Type-Options: Not set
+
+▓▓▓ SSL CERTIFICATE 🔒 ▓▓▓
+TLS/SSL certificate details
+  ✓ SSL Certificate: Valid
+  → Issuer: Validity
+  → Expires: Aug 25 08:35:29 2025 GMT
+  → Days until expiry: 58 days
+
+▓▓▓ EMAIL SECURITY 📧 ▓▓▓
+SPF, DKIM, and DMARC configuration
+  ✓ SPF Record: Found
+  →   Policy: v=spf1 include:_spf.google.com ~all
+  →   Enforcement: SoftFail (recommended)
+    Includes:
+      • _spf.google.com
+
+  → DKIM Selectors: Checking common selectors...
+  ✗ DKIM: No selectors found
+    ⚠ Email authentication not configured
+
+  ✓ DMARC Record: Found
+  →   Policy: v=DMARC1; p=reject; rua=mailto:mailauth-reports@google.com
+  →   Protection Level: reject (strict)
+  →   Reporting: Enabled
+
+▓▓▓ WEBSITE STATUS 🌍 ▓▓▓
+HTTP/HTTPS connectivity check
+  → HTTPS Status: 301 Redirect
+
+Analysis complete for google.com
+Generated on Fri Jun 27 21:43:54 CDT 2025 • Platform: macOS
 ```
 
 ## 🚀 Quick Start
 
-### One-Line Install & Run
-
 ```bash
-# Clone and run
 git clone https://github.com/jeffgolden/domain-checker.git
 cd domain-checker
 chmod +x domaincheck.sh
-./domaincheck.sh google.com
+./domaincheck.sh example.com
 ```
 
 ## 📦 Installation
 
 ### Prerequisites
 
-The tool uses standard Unix utilities that are typically pre-installed:
+The tool relies on the following command-line utilities, which are typically pre-installed on most Unix-like systems:
 
-- `dig` (DNS lookup)
-- `curl` (HTTP client)  
-- `whois` (Domain registration lookup)
-- `openssl` (SSL/TLS analysis)
+- `dig` (for DNS lookups)
+- `curl` (for HTTP requests)
+- `whois` (for domain registration lookups)
+- `openssl` (for SSL/TLS certificate analysis)
 
 ### Platform-Specific Installation
 
@@ -138,7 +164,7 @@ docker run --rm -it alpine:latest sh -c "
   git clone https://github.com/jeffgolden/domain-checker.git &&
   cd domain-checker && 
   chmod +x domaincheck.sh &&
-  ./domaincheck.sh google.com
+  ./domaincheck.sh example.com
 "
 ```
 </details>
@@ -342,7 +368,7 @@ We welcome contributions! Here's how you can help:
 ### 🧪 Testing
 ```bash
 # Test basic functionality
-./domaincheck.sh google.com
+./domaincheck.sh example.com
 
 # Test error handling
 ./domaincheck.sh invalid-domain-name
@@ -402,7 +428,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-<p align="center">
-  <em>Star ⭐ this repo if you find it useful!</em><br/>
-  <em>Claude Created this....</em>
-</p>
+

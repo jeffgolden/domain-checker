@@ -235,13 +235,29 @@ analyze_domain() {
     local ns_records=$(dns_lookup NS "$domain")
     
     if [[ -n "$a_record" ]]; then
-        print_result "success" "A Record" "$a_record" "${WHITE}"
+        local first_a=true
+        echo "$a_record" | while read -r record; do
+            if [ "$first_a" = true ]; then
+                print_result "success" "A Record" "$record" "${WHITE}"
+                first_a=false
+            else
+                echo -e "              $record"
+            fi
+        done
     else
         print_result "error" "A Record" "Not found" "${RED}"
     fi
     
     if [[ -n "$aaaa_record" ]]; then
-        print_result "success" "AAAA Record" "$aaaa_record" "${WHITE}"
+        local first_aaaa=true
+        echo "$aaaa_record" | while read -r record; do
+            if [ "$first_aaaa" = true ]; then
+                print_result "success" "AAAA Record" "$record" "${WHITE}"
+                first_aaaa=false
+            else
+                echo -e "                 $record"
+            fi
+        done
     else
         print_result "info" "AAAA Record" "No IPv6" "${GRAY}"
     fi
