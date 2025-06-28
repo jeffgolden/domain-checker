@@ -12,7 +12,7 @@
 - 🛡️ **Advanced Email Security** - SPF, DKIM, DMARC policy analysis
 - 🌐 **SSL/TLS Certificate Monitoring** - Expiration warnings and CA details  
 - 🔒 **Security Headers Assessment** - HSTS, X-Frame-Options, Content-Type protection
-- 📋 **WHOIS Intelligence** - Registration data and domain status
+- 📋 **WHOIS Intelligence** - Complete registration data, registrant info, contacts, and privacy detection
 - 🎨 **Beautiful Terminal Output** - Colored output with Unicode symbols
 - 🖥️ **Cross-Platform** - Works on Linux, macOS, and FreeBSD
 - ⚡ **Zero Dependencies** - Uses standard Unix tools
@@ -227,9 +227,54 @@ done
 
 ### 📋 Domain Registration
 - **WHOIS Data** extraction and parsing
-- **Registrar Information**
-- **Creation and expiration dates**
-- **Domain status and lock information**
+- **Registrar Information** and status codes
+- **Important Dates**:
+  - Registration date
+  - Last update date
+  - Expiration date
+- **Registrant Information**:
+  - Name and Organization
+  - Email address
+  - Country and State/Province
+- **Contact Details**:
+  - Administrative contact (name & email)
+  - Technical contact (name & email)
+- **Privacy Protection Detection** - Identifies domains using WHOIS privacy/proxy services
+- **Domain Status** codes and lock information
+
+
+### Enhanced WHOIS Output Example
+
+When analyzing a domain, the tool now provides comprehensive registration information:
+
+```
+▓▓▓ DOMAIN REGISTRATION 📋 ▓▓▓
+WHOIS and registration details
+  ✓ Registrar: MarkMonitor Inc.
+  ✓ Registration Date: 1997-09-15
+  ✓ Last Updated: 2024-09-09T15:39:04Z
+  ✓ Expiration Date: 2028-09-14T04:00:00Z
+  ✓ Status: ACTIVE
+
+  Registrant Information:
+  → Name: REDACTED FOR PRIVACY
+  → Organization: Example Corp
+  → Email: contact@example.com
+  → Country: US
+  → State/Province: CA
+
+  Administrative Contact:
+  → Name: Domain Administrator
+  → Email: admin@example.com
+
+  Technical Contact:
+  → Name: Technical Support
+  → Email: tech@example.com
+
+  ⚠️  Note: This domain appears to use WHOIS privacy protection
+```
+
+The tool automatically detects when domains use privacy protection services and alerts you accordingly.
 
 ## 🎯 Use Cases
 

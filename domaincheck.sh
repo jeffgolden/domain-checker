@@ -328,25 +328,73 @@ analyze_domain() {
         print_result "error" "HTTPS (Port 443)" "Not responding" "${RED}"
     fi
     
+# Starting from line 331 (# WHOIS Information)
+
     # WHOIS Information
     print_section "DOMAIN REGISTRATION 📋" "WHOIS and registration details"
     
     local whois_info=$(whois "$domain" 2>/dev/null)
     if [[ -n "$whois_info" ]]; then
+        # Basic registration info
         local registrar=$(echo "$whois_info" | grep -i "registrar:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
-        local created=$(echo "$whois_info" | grep -i "creation date\|created" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local created=$(echo "$whois_info" | grep -i "creation date\|created\|registration date" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local updated=$(echo "$whois_info" | grep -i "updated date\|last update" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         local expires=$(echo "$whois_info" | grep -i "expir" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         local status=$(echo "$whois_info" | grep -i "status:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
         
+        # Registrant information
+        local registrant_name=$(echo "$whois_info" | grep -i "registrant name\|registrant:" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local registrant_org=$(echo "$whois_info" | grep -i "registrant organi" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local registrant_email=$(echo "$whois_info" | grep -i "registrant email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local registrant_country=$(echo "$whois_info" | grep -i "registrant country" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local registrant_state=$(echo "$whois_info" | grep -i "registrant state\|registrant province" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        
+        # Admin contact
+        local admin_name=$(echo "$whois_info" | grep -i "admin name" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local admin_email=$(echo "$whois_info" | grep -i "admin email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        
+        # Tech contact
+        local tech_name=$(echo "$whois_info" | grep -i "tech name" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        local tech_email=$(echo "$whois_info" | grep -i "tech email" | head -1 | cut -d':' -f2- | sed 's/^[[:space:]]*//')
+        
+        # Display basic info
         [[ -n "$registrar" ]] && print_result "success" "Registrar" "$registrar" "${WHITE}"
-        [[ -n "$created" ]] && print_result "success" "Created" "$created" "${WHITE}"
-        [[ -n "$expires" ]] && print_result "success" "Expires" "$expires" "${WHITE}"
+        [[ -n "$created" ]] && print_result "success" "Registration Date" "$created" "${WHITE}"
+        [[ -n "$updated" ]] && print_result "success" "Last Updated" "$updated" "${WHITE}"
+        [[ -n "$expires" ]] && print_result "success" "Expiration Date" "$expires" "${WHITE}"
         [[ -n "$status" ]] && print_result "success" "Status" "$status" "${WHITE}"
+        
+        # Display registrant info if available
+        if [[ -n "$registrant_name" ]] || [[ -n "$registrant_org" ]] || [[ -n "$registrant_email" ]]; then
+            echo -e "\n  ${BOLD}Registrant Information:${NC}"
+            [[ -n "$registrant_name" ]] && print_result "info" "  Name" "$registrant_name" "${CYAN}"
+            [[ -n "$registrant_org" ]] && print_result "info" "  Organization" "$registrant_org" "${CYAN}"
+            [[ -n "$registrant_email" ]] && print_result "info" "  Email" "$registrant_email" "${CYAN}"
+            [[ -n "$registrant_country" ]] && print_result "info" "  Country" "$registrant_country" "${CYAN}"
+            [[ -n "$registrant_state" ]] && print_result "info" "  State/Province" "$registrant_state" "${CYAN}"
+        fi
+        
+        # Display admin contact if available
+        if [[ -n "$admin_name" ]] || [[ -n "$admin_email" ]]; then
+            echo -e "\n  ${BOLD}Administrative Contact:${NC}"
+            [[ -n "$admin_name" ]] && print_result "info" "  Name" "$admin_name" "${CYAN}"
+            [[ -n "$admin_email" ]] && print_result "info" "  Email" "$admin_email" "${CYAN}"
+        fi
+        
+        # Display tech contact if available
+        if [[ -n "$tech_name" ]] || [[ -n "$tech_email" ]]; then
+            echo -e "\n  ${BOLD}Technical Contact:${NC}"
+            [[ -n "$tech_name" ]] && print_result "info" "  Name" "$tech_name" "${CYAN}"
+            [[ -n "$tech_email" ]] && print_result "info" "  Email" "$tech_email" "${CYAN}"
+        fi
+        
+        # Check for privacy protection
+        if echo "$whois_info" | grep -qi "privacy\|proxy\|protected\|redacted\|data protected"; then
+            echo -e "\n  ${YELLOW}⚠️  Note: This domain appears to use WHOIS privacy protection${NC}"
+        fi
     else
         print_result "error" "WHOIS Data" "Unable to retrieve" "${RED}"
     fi
-    
-    # Security Headers
     print_section "SECURITY HEADERS 🛡️" "HTTP security header analysis"
     
     local headers=$(curl -s -I --max-time 10 "https://$domain" 2>/dev/null)
