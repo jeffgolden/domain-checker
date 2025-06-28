@@ -379,15 +379,7 @@ We welcome contributions! Here's how you can help:
 # Cross-platform testing appreciated!
 ```
 
-## 📋 Roadmap
 
-- [ ] **JSON Output Format** - Machine-readable results
-- [ ] **Bulk Domain Processing** - File input support
-- [ ] **Additional DNS Records** - CAA, TLSA, SRV analysis
-- [ ] **Custom Geolocation Providers** - Alternative API support
-- [ ] **Performance Benchmarking** - Speed optimization
-- [ ] **Configuration File** - Customizable check settings
-- [ ] **Plugin System** - Extensible analysis modules
 
 ## 🚨 Legal & Ethical Use
 
@@ -424,7 +416,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Documentation**: See this README and inline help (`--help`)
 - **Issues**: [GitHub Issues](https://github.com/jeffgolden/domain-checker/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jeffgolden/domain-checker/discussions)
+
 
 ---
 
